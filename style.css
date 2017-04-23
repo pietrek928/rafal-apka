@@ -1,0 +1,13 @@
+* {
+    font-size: 22px;
+}
+
+.einfo {
+    color: red;
+}
+
+.in_err {
+    color: red;
+    background-color: red;
+}
+
