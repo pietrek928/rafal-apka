@@ -13,7 +13,7 @@ from types import MethodType
 import datetime
 import time
 
-def deny_chars(  ch ):
+def deny_chars( ch ):
     def f( v ):
         for c in ch:
             if c in v:
@@ -307,7 +307,7 @@ class form:
 
     def __init__( s, n, d, t, ab=[] ):
         s.__dict__.update(locals())
-        delattr(s,'s')
+        del s.s
     def show( s, af, r=None ):
         if not r: r = s.obj();
         for f in af:
@@ -346,7 +346,7 @@ class touch_kbd:
     class obj:
         def __init__( s, b, w ):
             s.__dict__.update(locals())
-            delattr(s,'s')
+            del s.s
         def kp( s, bb, k, kc ):
             e = Gdk.Event()
             e.type = Gdk.EventType.KEY_PRESS
@@ -390,7 +390,7 @@ class touch_kbd:
 class dbconn:
     def connect( s, **params ):
         s.hh = pg.connect( **params )
-        s.hh.autocommit = True
+        s.hh.autocommit = True # TODO: commit after whole transaction
         s.cc = s.hh.cursor(  )
         s.ff = None
     def insert( s, t, d, rid=False ):
@@ -422,10 +422,10 @@ class dbconn:
         return row[1:]
 
 class frm( dict ):
-    def remap( s, **d ):
-        return {nr:s[n] for n,nr in d.items()}
-    def extract( s, *l ):
-        return {n:s[n] for n in l}
+    def extract( s, *l, **d ):
+        r = {n:s[n] for n in l}
+        r.update({ n:s[nr] for n,nr in d.items() })
+        return r
     def insert( s, **d ):
         s.update( d )
 
@@ -451,10 +451,10 @@ w.add( pb )
 
 def pdata_submit( db, d ):
     d = frm(d)
-    udata = d.remap( n='name',ln='sname',bd='bdate' )
+    udata = d.extract( name='n', sname='ln', bdate='bd' )
     udata.update(dict( sex='?', password='', pid='', id_pid_type=1, idcard_type='', height=0, insurance_by_self=True, made_insurance_payments=True, insurer='', insurance_last_ver_date='2018-03-17', idcard_number='', contraindications='Brak', user_group='-' ))
     uid = db.insert( 'users.user', udata, rid=True )
-    cid = db.insert( 'contact', d.remap(tel='value'), rid=True )
+    cid = db.insert( 'contact', d.extract(value='tel'), rid=True )
     db.insert( 'users.user_cont', dict( id_contact=cid, added_date=str(datetime.datetime.now()), id_user=uid ) )
     adata = d.extract( 'city', 'street', 'province', 'postal_code', 'country', 'street_number', 'building', 'unit' )
     adata.update( dict( hash='' ) )
