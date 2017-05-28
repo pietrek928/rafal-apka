@@ -45,10 +45,12 @@ def len_checker( mn=0, mx=128 ):
     return f
 
 class in_str:
-    def __init__( s, dv='' ):
-        s.dv = dv
+    def __init__( s, dv='',vv = True):
+        s.__dict__.update(locals())
+        del s.s
     def show( s, fd, v ):
         r = Gtk.Entry()
+        r.set_visibility(s.vv)
         r.set_width_chars( 24 )
         fd.rw( r )
         r.connect( 'changed', fd.entry_edited )
@@ -86,7 +88,7 @@ class in_date:
 class col_descr:
     def __init__( s, n ):
         s.__dict__.update(locals())
-        delattr(s,'s')
+        del s.s
         #s.t = GdkPixbuf.Pixbuf
         s.t = str
     def col( s, it ):
@@ -410,7 +412,7 @@ class dbconn:
     def update( s, t, d, cond ):
         if len(cond)<4: #raise ValueError( "condition '%s' too short" % ( cond ) )
             cond = 'id='+str(d.id)
-        vv = ','.join([n+"='"+str(v)+"'," for n,v in d.keys()])
+        vv = ','.join([n+"='"+str(v)+"'," for n,v in d.items()])
         s.cc.execute( 'UPDATE %s SET %s WHERE (%s)' % ( t, vv, cond ) )
     def first( s, t, cond, nt=['*'] ):
         s.cc.execute( 'SELECT %s FROM %s WHERE (%s)' % ( ','.join(nt), t, cond ) )
@@ -424,7 +426,7 @@ class dbconn:
 class frm( dict ):
     def extract( s, *l, **d ):
         r = {n:s[n] for n in l}
-        r.update({ n:s[nr] for n,nr in d.items() })
+        r.update({ n:s[v] for n,v in d.items() })
         return r
     def insert( s, **d ):
         s.update( d )
@@ -482,9 +484,20 @@ aa = form('aa','Dodaj pacjenta',(
     act_btn( 'cancel', txt='Cancel' ),
     act_btn( 'submit', img=im, txt='Ok' ),
 ))#lambda v: print(v))
+
+flog = form('flog','Logowanie do systemu',(
+    field( 'Login', 'log', in_str(), [ db_chk_str, len_checker( 1, 20 ) ], hint='Podaj Login' ),
+    field( 'Hasło', 'pass', in_str(vv=False), [ db_chk_str, len_checker( 1, 20 ) ], hint='Podaj Hasło' ),
+    
+), ab=(
+    act_btn( 'cancel', txt='Cancel' ),
+    act_btn( 'submit', img=im, txt='Ok' ),
+))
+
+
 db = dbconn()
-db.connect( dbname='forrest', user='iwasz' )
-oo = aa.show((
+#db.connect( dbname='forrest', user='iwasz' )
+oo = flog.show((
 #    act_descr('submit', lambda d, o: (o.chk(),print( d, o ),o.close())),
     act_descr('submit', lambda d, o: (o.chk(),print( str(d).encode(), o ),pdata_submit(db,d),w.destroy())), # o.chk()
     act_descr('cancel', lambda d, o: (print( d, o ),w.destroy())),
