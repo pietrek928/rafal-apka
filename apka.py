@@ -231,9 +231,8 @@ class field:
         def activated( s, *args ):
             s.fp.submit()
         def print_err( s, e ):
-            if hasattr( s, 'el' ):
-                s.el.set_text( e )
-            if len(e): # set error style
+            s.err = e
+            if e: # set error style
                 s.w.get_style_context().add_class( 'in_err' )
             else:
                 s.w.get_style_context().remove_class( 'in_err' )
@@ -241,22 +240,32 @@ class field:
             s.w = w
         def cont( s ):
             return s.w
+        def hint_func( s, w, x, y, km, t ):
+            b = Gtk.Box( orientation=Gtk.Orientation.VERTICAL )
+            b.get_style_context().add_class( 'hint' )
+            t1 = Gtk.Label( s.od.hint )
+            b.add(t1)
+            err = getattr( s, 'err', None )
+            if err:
+                t2 = Gtk.Label( 'error: '+s.err )
+                t2.get_style_context().add_class( 'einfo' )
+                b.add(t2)
+            b.show_all()
+            t.set_custom( b )
+            return True
 
-    def __init__( s, d, vn, in_obj, chk_list, hint=None, exp=False, err=True ):
+    def __init__( s, d, vn, in_obj, chk_list, hint=None, exp=False ):
         s.__dict__.update(locals())
         delattr(s,'s')
     def show( s, fp ):
         o = s.obj( s, fp )
-        if s.err:
-            o.el = Gtk.Label()
-            o.el.get_style_context().add_class( 'einfo' )
         dv = fp.get(s.vn,s.in_obj.dv)
         s.in_obj.show( o, dv )
         s.update( o, dv )
         if s.hint:
-            o.w.set_tooltip_text( s.hint )
-#            box.set_has_tooltip(True)
-#            box.connect("query-tooltip", s.hint_func() )
+#            o.w.set_tooltip_text( s.hint )
+            o.w.set_has_tooltip(True)
+            o.w.connect("query-tooltip", o.hint_func )
         return o
     def update( s, o, v ):
         try:
@@ -269,12 +278,6 @@ class field:
             o.print_err( str( e ) )
             o.fp.mark_err( s.vn )
             return
-#    def hint_func( s ):
-#        h = s.hint
-#        def r( w, x, y, km, t ):
-#            t.set_text( h )
-#            return True
-#        return r
 
 class form:
     class obj:
@@ -306,6 +309,8 @@ class form:
                 raise ValueError( 'fill all fields correctly' )
         def cont( s ):
             return s.w
+        def data( s ):
+            return s.d
 
     def __init__( s, n, d, t, ab=[] ):
         s.__dict__.update(locals())
@@ -331,8 +336,6 @@ class form:
                 t.attach( fo.cont(), 1, n_row, 1, 1 )
             else:
                 t.attach( fo.cont(), 0, n_row, 2, 1 )
-            if hasattr( fo, 'el' ):
-                t.attach( fo.el, 2, n_row, 1, 1 )
             n_row+=1
         box_btn = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         r.el = Gtk.Label()
@@ -341,7 +344,59 @@ class form:
         for i in s.ab:
             b = i.show( r )
             box_btn.pack_start( b, False, True, 20 )
-        w.show_all()
+        r.w.show_all()
+        return r
+
+class fhold:
+    class obj:
+        def __init__( s, p ):
+            s.p = p
+            s.od = {}
+            s.pb = Gtk.Grid()
+        def __getitem__( s, _n ):
+            p = s.p
+            r = {}
+            for n in ( _n if isinstance( _n, tuple ) else (_n,) ):
+                try:
+                    r.update( p.od[n].f.data() )
+                except (AttributeError, KeyError): # TODO: log error ?
+                    pass
+            return r
+        def rm( s, *_n ):
+            p = s.p
+            for n in _n:
+                try:
+                    ob = s.od.get( n, None )
+                    if ob:
+                        del s.od[n]
+                        s.pb.remove( ob )
+                except (AttributeError, KeyError):
+                    pass
+        def up( s, *_n ):
+            p = s.p
+            s.rm( *_n )
+            for n in _n:
+                try:
+                    o = p.od[n]
+                    s.od[n] = o.f( s )
+                    s.pb.attach( s.od[n], * o.pp )
+                    if o.ac:
+                        o.ac( s )
+                except (AttributeError, KeyError): # TODO: log error ?
+                    pass
+            s.pb.show_all()
+        def cont( s ):
+            return s.pb
+    class wdescr:
+        def __init__( s, pp, f, ac=None ):
+            s.__dict__.update(locals())
+            del s.s
+
+    def __init__( s, oo ):
+        s.od = { n:s.wdescr(*pp) for n,pp in oo.items() }
+    def show( s, *so ):
+        r = s.obj( s )
+        r.up( *so )
         return r
 
 class touch_kbd:
@@ -451,6 +506,8 @@ w = Gtk.Window( title='Dodaj pacjenta' )
 pb = Gtk.Box( orientation=Gtk.Orientation.VERTICAL )
 w.add( pb )
 
+
+
 def pdata_submit( db, d ):
     d = frm(d)
     udata = d.extract( name='n', sname='ln', bdate='bd' )
@@ -488,7 +545,7 @@ aa = form('aa','Dodaj pacjenta',(
 flog = form('flog','Logowanie do systemu',(
     field( 'Login', 'log', in_str(), [ db_chk_str, len_checker( 1, 20 ) ], hint='Podaj Login' ),
     field( 'Hasło', 'pass', in_str(vv=False), [ db_chk_str, len_checker( 1, 20 ) ], hint='Podaj Hasło' ),
-    
+
 ), ab=(
     act_btn( 'cancel', txt='Cancel' ),
     act_btn( 'submit', img=im, txt='Ok' ),
@@ -502,7 +559,7 @@ oo = flog.show((
     act_descr('submit', lambda d, o: (o.chk(),print( str(d).encode(), o ),pdata_submit(db,d),w.destroy())), # o.chk()
     act_descr('cancel', lambda d, o: (print( d, o ),w.destroy())),
 ),aaa)
-pb.add( oo.cont() )
+#pb.add( oo.cont() )
 
 #pb.add( touch_kbd().show(w).cont() )
  #"""
@@ -524,6 +581,20 @@ b.connect( 'clicked', hh.vneg )
 bb.add( hh.cont() )
 w.connect( 'destroy', Gtk.main_quit )
 w.show_all() #"""
+
+aa = 0
+
+def ll( o ):
+    global aa
+    aa += 1
+    return Gtk.Label(str(aa))
+
+fh = fhold({
+    'a':((0,0,1,1),ll),
+    'b':((1,1,2,2),ll)
+})
+oo = fh.show('a', 'b')
+pb.add( oo.cont() )
 
 
 w.connect( 'destroy', Gtk.main_quit )
