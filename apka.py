@@ -392,7 +392,7 @@ class fhold:
             s.__dict__.update(locals())
             del s.s
 
-    def __init__( s, oo ):
+    def __init__( s, **oo ):
         s.od = { n:s.wdescr(*pp) for n,pp in oo.items() }
     def show( s, *so ):
         r = s.obj( s )
@@ -444,6 +444,41 @@ class touch_kbd:
         b.attach( s.btn( 'OK', r, Gdk.KEY_Return, 'enter' ), 1, 4, 1, 1 )
         return r
 
+def panel( p, *l ):
+    r = Gtk.Box( gtk.Orientation.HORIZONTAL )
+    for i in l: # TODO: selective styles ?
+        if isinstance( i, str ):
+            if i == 'sep':
+                r.add( Gtk.GtkVSeparator() )
+            else:
+                r.add( Gtk.Label( i ) )
+        else:
+            r.add( i.show( p ) )
+    r.show_all()
+    return r
+
+class wmain:
+    def user_info( s ):
+        db = getattr( s, 'db', None )
+        l = []
+        if not db:
+            l.append( 'not connected' )
+        else:
+            s,d = db.state()
+            l.append( s )
+            l.append( d )
+            l.append( 'sep' )
+            if s == 'logged':
+                l.append( db.user )
+                l.append( db.perm )
+        return panel( *l )
+    def show( s ):
+        o = s.obj()
+        o.w = Gtk.Window()
+        o.ho = s.fh.show( 'login', 'dbpanel' )
+        o.w.add( o.ho.cont() )
+        return o.w
+
 class dbconn:
     def connect( s, **params ):
         s.hh = pg.connect( **params )
@@ -477,6 +512,8 @@ class dbconn:
         s.cc.execute( 'SELECT %s FROM %s WHERE (%s)' % ( ','.join(nt), t, cond ) )
         row = s.cc.fetchall()
         return row[1:]
+    def state( s ):
+        return ('connected','aaaaaaaaaaaaa')
 
 class frm( dict ):
     def extract( s, *l, **d ):
@@ -589,13 +626,15 @@ def ll( o ):
     aa += 1
     return Gtk.Label(str(aa))
 
-fh = fhold({
-    'a':((0,0,1,1),ll),
-    'b':((1,1,2,2),ll)
-})
+
+fh = fhold(
+    a=((0,0,1,1),ll),
+    b=((1,1,2,2),ll)
+)
 oo = fh.show('a', 'b')
 pb.add( oo.cont() )
 
+oo.up( 'a' )
 
 w.connect( 'destroy', Gtk.main_quit )
 w.show_all()
