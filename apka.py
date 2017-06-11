@@ -458,6 +458,11 @@ def panel( p, *l ):
     return r
 
 class wmain:
+    def __init__( s ):
+        ff = {}
+        ff['login'] = ((0,0,2,2),lambda p: )
+        ff['dbpanel'] = ((0,19,20,20),lambda p: p.user_info())
+        s.fh = fhold( **ff );
     def user_info( s ):
         db = getattr( s, 'db', None )
         l = []
